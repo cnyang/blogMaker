@@ -1,0 +1,13 @@
+{{- /* 封面用本地 SVG，不抓 YouTube 縮圖：兒童站首頁不對第三方發出請求 */ -}}
+{{- $k := default "music" .Params.kind -}}
+{{- $kind := index site.Data.kinds $k -}}
+<li class="card kind-{{ $k }}">
+<a href="{{ .RelPermalink }}">
+<span class="cover">
+<span class="bubble"><svg viewBox="0 0 24 24" aria-hidden="true">{{ $kind.icon | safeHTML }}</svg></span>
+<svg class="play" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="12"/><path d="M9.500 7.500v9l7-4.500z"/></svg>
+</span>
+<span class="card-body"><span class="tag">{{ $kind.label }}</span>
+<span class="card-title">{{ .Title }}</span></span>
+</a>
+</li>

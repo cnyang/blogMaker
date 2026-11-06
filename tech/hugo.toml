@@ -1,0 +1,27 @@
+baseURL = "https://tech.example.com/"
+languageCode = "zh-TW"
+defaultContentLanguage = "zh-tw"
+title = "技術筆記"
+theme = "shared"
+hasCJKLanguage = true
+enableRobotsTXT = true
+
+[markup.goldmark.renderer]
+unsafe = false  # 擋掉 LLM 內容裡的 raw HTML，不可改成 true
+
+[privacy.youTube]
+privacyEnhanced = true
+
+[params]
+variant = "tech"
+tagline = "實作紀錄、踩坑筆記與工程取捨"
+
+[markup.highlight]
+style = "github-dark"
+
+[params.ads]
+client = ""  # ca-pub-xxx；留空則完全不載入廣告
+ageTreatment = ""
+[params.ads.slots]
+top = ""
+bottom = ""

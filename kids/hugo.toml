@@ -1,0 +1,23 @@
+baseURL = "https://kids.example.com/"
+languageCode = "zh-TW"
+defaultContentLanguage = "zh-tw"
+title = "兒童頻道"
+theme = "shared"
+hasCJKLanguage = true
+enableRobotsTXT = true
+
+[markup.goldmark.renderer]
+unsafe = false  # 擋掉 LLM 內容裡的 raw HTML，不可改成 true
+
+[privacy.youTube]
+privacyEnhanced = true
+
+[params]
+variant = "kids"
+tagline = "陪孩子唱歌、學英文、發現新知識的小影片"
+
+[params.ads]
+client = ""  # ca-pub-xxx；留空則完全不載入廣告
+ageTreatment = "1"  # COPPA：兒童導向，不可移除
+[params.ads.slots]
+bottom = ""

@@ -1,0 +1,16 @@
+{{ $n := len (where site.RegularPages "Section" "posts") }}
+<section class="tech-hero"><div class="wrap wide hero-grid">
+<div>
+<p class="eyebrow">// engineering notes</p>
+<h1>{{ site.Title }}</h1>
+<p class="lead">{{ site.Params.tagline }}</p>
+</div>
+<div class="term" aria-hidden="true">
+<div class="term-bar"><i></i><i></i><i></i><span>~/notes — zsh</span></div>
+<pre><span class="p">$</span> cat tagline.txt
+{{ site.Params.tagline }}
+<span class="p">$</span> ls posts | wc -l
+{{ $n }}
+<span class="p">$</span> <span class="cursor"></span></pre>
+</div>
+</div></section>

@@ -1,0 +1,30 @@
+{{ define "hero" }}{{ partial (printf "hero-%s.html" site.Params.variant) . }}{{ end }}
+{{ define "main" }}
+{{ $posts := where site.RegularPages "Section" "posts" }}
+{{ if eq site.Params.variant "kids" }}
+{{ range $k := site.Data.kinds.order }}
+{{ $kind := index site.Data.kinds $k }}
+{{ with where $posts "Params.kind" $k }}
+<section class="shelf kind-{{ $k }}" id="{{ $k }}">
+<h2 class="shelf-title"><span class="chip-icon"><svg viewBox="0 0 24 24" aria-hidden="true">{{ $kind.icon | safeHTML }}</svg></span>{{ $kind.heading }}</h2>
+<ul class="cards">{{ range . }}{{ partial "card.html" . }}{{ end }}</ul>
+</section>
+{{ end }}
+{{ end }}
+{{ else }}
+<div class="wide-main">
+{{ with index $posts 0 }}
+<a class="feature" href="{{ .RelPermalink }}">
+<span class="eyebrow">最新文章</span>
+<h2>{{ .Title }}</h2>
+<p>{{ default (.Summary | plainify) .Description | truncate 110 }}</p>
+{{ partial "meta.html" . }}
+</a>
+{{ end }}
+<ul class="post-grid">{{ range after 1 $posts }}
+<li><a href="{{ .RelPermalink }}"><h3>{{ .Title }}</h3><p>{{ default (.Summary | plainify) .Description | truncate 70 }}</p>{{ partial "meta.html" . }}</a></li>{{ end }}
+</ul>
+</div>
+{{ end }}
+{{ partial "ad.html" "bottom" }}
+{{ end }}

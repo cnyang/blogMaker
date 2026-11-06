@@ -1,0 +1,25 @@
+<section class="kids-hero">
+<svg class="scene" viewBox="0 0 1440 420" preserveAspectRatio="xMaxYMax slice" aria-hidden="true">
+<g class="sun" transform="translate(-180 0)"><circle cx="1180" cy="110" r="56"/><g class="rays">
+<path d="M1180 28v-22M1180 214v-22M1098 110h-22M1284 110h-22M1122 52l-15-15M1253 183l-15-15M1122 168l-15 15M1253 37l-15 15"/></g></g>
+<g class="stars"><circle cx="160" cy="70" r="3"/><circle cx="420" cy="40" r="2.500"/><circle cx="640" cy="110" r="3"/><circle cx="860" cy="50" r="2.500"/><circle cx="1020" cy="150" r="2.500"/><circle cx="1340" cy="60" r="3"/><circle cx="300" cy="150" r="2.500"/></g>
+<g transform="translate(440 0)"><g class="cloud c2"><ellipse cx="880" cy="84" rx="58" ry="22"/><circle cx="858" cy="70" r="24"/><circle cx="902" cy="64" r="30"/></g></g>
+<path class="hill-far" d="M0 300C240 220 480 340 720 280S1200 220 1440 300V420H0Z"/>
+<path class="hill-mid" d="M0 350C300 280 600 390 900 330S1300 300 1440 350V420H0Z"/>
+<g class="mascot" transform="translate(1250 214)">
+<path class="body" d="M60 6l16 34 37 5-27 26 7 37-33-18-33 18 7-37L7 45l37-5z"/>
+<circle class="eye" cx="46" cy="58" r="5"/><circle class="eye" cx="74" cy="58" r="5"/>
+<path class="smile" d="M48 72c6 8 18 8 24 0"/>
+<circle class="cheek" cx="36" cy="70" r="6"/><circle class="cheek" cx="84" cy="70" r="6"/>
+</g>
+<g transform="translate(205 0)"><g class="notes"><path d="M1000 210v-40l28-6v38"/><circle cx="991" cy="212" r="10"/><circle cx="1019" cy="204" r="10"/></g></g>
+<path class="hill-near" d="M0 390C360 340 720 420 1080 370S1400 350 1440 352V420H0Z"/>
+</svg>
+<div class="wrap hero-copy">
+<h1>{{ site.Title }}</h1>
+<p>{{ site.Params.tagline }}</p>
+<nav class="jump" aria-label="影片分類">{{ range site.Data.kinds.order }}{{ $kind := index site.Data.kinds . }}
+<a class="kind-{{ . }}" href="#{{ . }}"><svg viewBox="0 0 24 24" aria-hidden="true">{{ $kind.icon | safeHTML }}</svg>{{ $kind.label }}</a>{{ end }}
+</nav>
+</div>
+</section>

@@ -1,0 +1,5 @@
+{{ $r := transform.HighlightCodeBlock . }}
+<figure class="code">
+<figcaption><i></i><i></i><i></i><span>{{ default "text" .Type }}</span></figcaption>
+{{ $r.Wrapped }}
+</figure>

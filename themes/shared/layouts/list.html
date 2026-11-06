@@ -1,0 +1,16 @@
+{{ define "main" }}
+<section class="intro">
+<h1>{{ .Title }}</h1>
+{{ with site.Params.tagline }}<p>{{ . }}</p>{{ end }}
+</section>
+{{ $posts := where site.RegularPages "Section" "posts" }}
+{{ if eq site.Params.variant "kids" }}
+<ul class="cards">{{ range $posts }}{{ partial "card.html" . }}{{ end }}</ul>
+{{ else }}
+<ul class="rows">{{ range $posts }}
+<li><time datetime="{{ .Date.Format "2006-01-02" }}">{{ .Date.Format "2006-01-02" }}</time>
+<a href="{{ .RelPermalink }}">{{ .Title }}</a></li>{{ end }}
+</ul>
+{{ end }}
+{{ partial "ad.html" "bottom" }}
+{{ end }}

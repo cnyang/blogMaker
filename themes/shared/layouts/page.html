@@ -1,0 +1,18 @@
+{{ define "hero" }}
+{{ if eq .Section "posts" }}
+<header class="post-hero{{ with .Params.kind }} kind-{{ . }}{{ end }}"><div class="wrap">
+{{ with .Params.kind }}<p class="eyebrow">{{ (index site.Data.kinds .).label }}</p>{{ end }}
+<h1>{{ .Title }}</h1>
+{{ partial "meta.html" . }}
+</div></header>
+{{ if eq site.Params.variant "tech" }}<div class="progress" aria-hidden="true"></div>{{ end }}
+{{ end }}
+{{ end }}
+{{ define "main" }}
+<article class="post">
+{{ if ne .Section "posts" }}<h1>{{ .Title }}</h1>{{ end }}
+{{ if eq .Section "posts" }}{{ partial "ad.html" "top" }}{{ end }}
+<div class="prose">{{ .Content }}</div>
+{{ if eq .Section "posts" }}{{ partial "ad.html" "bottom" }}{{ end }}
+</article>
+{{ end }}

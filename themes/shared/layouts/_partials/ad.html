@@ -1,0 +1,9 @@
+{{- /* 用法：partial "ad.html" "bottom"。client 或該版位未設定時不輸出任何東西 */ -}}
+{{- $ads := site.Params.ads -}}
+{{- $slot := index $ads.slots . -}}
+{{- if and $ads.client $slot }}
+<aside class="ad" aria-label="廣告">
+<ins class="adsbygoogle" style="display:block" data-ad-client="{{ $ads.client }}" data-ad-slot="{{ $slot }}" data-ad-format="auto" data-full-width-responsive="true"{{ with $ads.ageTreatment }} data-tag-for-age-treatment="{{ . }}"{{ end }}></ins>
+<script nonce="__CSP_NONCE__">(adsbygoogle = window.adsbygoogle || []).push({});</script>
+</aside>
+{{- end }}
