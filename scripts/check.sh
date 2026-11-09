@@ -6,7 +6,10 @@ tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
 fail() { echo "FAIL: $1"; exit 1; }
 build() { hugo -s "$1" --themesDir ../themes --destination "$2" "${@:3}" >"$tmp/log" 2>&1 || { cat "$tmp/log"; fail "$1 建置失敗"; }; }
 
-node --test tests/*.test.mjs
+npm test
+npm run lint
+npm run validate
+npm run preview -- --no-ai
 
 # 未設定 client：完全不載入廣告
 for s in kids tech; do

@@ -1,15 +1,86 @@
 # blogMaker
 
-一個 repo、兩個子網域：`kids/`（兒童）與 `tech/`（技術），共用 `themes/shared`，各部署為一個 Cloudflare Pages 專案。
+以 Markdown 管理文章，經 AI 潤稿、摘要與標籤整理後，發布到 **Blogger**。保留原本 Hugo 兒童／技術兩站供本機與 GitHub Pages 預覽，共用 `themes/shared`。
 
-## 指令
-
-```bash
-hugo server -s tech --themesDir ../themes   # 本機預覽（kids 同理）
-./scripts/check.sh                          # 建置兩站並驗證廣告與安全行為
+```text
+posts/ ----------------------+                     +--> Blogger（正式發布）
+kids/content/posts/ ---------+--> 驗證 --> AI --> HTML
+tech/content/posts/ ---------+                     +--> build/（文章預覽）
+         |
+         +--> Hugo + themes/shared --> 本機 / GitHub Pages（網站預覽）
 ```
 
-## Cloudflare Pages 設定（兩個專案各一份）
+## 快速開始
+
+需要 Node.js 24 以上、npm、Git；網站預覽與完整檢查另需 Hugo（CI 使用 0.169.0）。
+
+```bash
+npm ci
+npm test
+npm run lint
+npm run validate
+npm run preview -- --no-ai   # 離線 HTML 預覽，不需憑證、不呼叫 AI 或 Blogger
+./scripts/check.sh           # 執行上述檢查，再建置並驗證兩個 Hugo 站
+```
+
+`build/<文章 id>.html` 為 Blogger 文章預覽。所有內附範例均為 `publish: false`，不會同步到 Blogger。
+
+## 寫文章
+
+```bash
+npm run new -- "技術文章標題" --site tech
+npm run new -- "兒童文章標題" --site kids
+npm run new -- "只發布到 Blogger 的文章"  # 建立於 posts/
+```
+
+`kids/content/posts/` 與 `tech/content/posts/` 的文章共用同一份 Markdown，可同時提供 Blogger 發布與 Hugo 預覽。文章開頭使用 `---` 包住 JSON front matter；保留固定且全域唯一的 `id`。
+
+```markdown
+---
+{
+  "id": "tech-my-first-post",
+  "title": "我的第一篇技術文章",
+  "date": "2026-11-09",
+  "publish": false,
+  "status": "draft",
+  "ai": true,
+  "labels": ["技術"]
+}
+---
+
+這裡開始撰寫 Markdown 正文。
+```
+
+確認內容後，設 `publish: true` 才同步；`status: "draft"` 儲存 Blogger 草稿，`"published"` 才公開。`publish: false` 與刪除本機檔案都不會刪除遠端文章。這些欄位只控制 Blogger，不會隱藏本機 Hugo 預覽。
+
+既有 9 篇 Hugo 範例保留原始路徑與內容，並補上 `kids-`／`tech-` 前綴 ID；原本日期、`tags`、`kind`、`description` 均保留。`tags` 會合併進 Blogger labels。Hugo 隱私權頁不會自動發布到 Blogger。
+
+## Blogger 發布
+
+完整的 [AI、Google OAuth、GitHub Actions 與失敗復原設定](docs/blogger.md)。設定好憑證後：
+
+```bash
+npm run preview                     # AI 潤稿與預覽，會使用 OpenAI API
+npm run publish -- --dry-run --no-ai  # 離線預覽
+npm run publish                     # 同步 publish: true 的文章
+```
+
+所有文章目前同步到單一 `BLOGGER_BLOG_ID`，兒童／技術內容以 labels 區分。`--site` 僅決定新文章的位置。
+
+- `.github/workflows/blogger.yml`：PR 執行測試、語法檢查、驗證與離線預覽；設定 `BLOGGER_BLOG_ID` 後，`main` 更新會同步到 Blogger。手動執行預設只產生 AI 預覽。
+- `.github/workflows/pages.yml`：保留兩站 GitHub Pages 預覽，帶有 `noindex`，不啟用廣告。
+- `blogger-state`：記錄文章 ID、遠端 post ID 與來源雜湊，支援更新、略過未變更文章及失敗復原。請保留這個分支。
+
+Blogger 的佈景主題、隱私權頁、兒童內容設定與 AdSense 需在 Blogger 後台設定；Hugo 的廣告與 CSP 不會套用到 Blogger。此合併不代表已完成 AdSense 申請或審核。
+
+## Hugo 預覽與原有 Cloudflare 設定
+
+```bash
+hugo server -s tech --themesDir ../themes
+hugo server -s kids --themesDir ../themes
+```
+
+若繼續使用原有 Cloudflare Pages 部署，兩站設定如下：
 
 | 欄位 | kids | tech |
 |---|---|---|
@@ -18,18 +89,8 @@ hugo server -s tech --themesDir ../themes   # 本機預覽（kids 同理）
 | Build output | `kids/public` | `tech/public` |
 | 環境變數 | `HUGO_VERSION=0.169.0` | `HUGO_VERSION=0.169.0` |
 
-Root 必須是 `/`，`functions/_middleware.js` 才會被部署。
+Root 必須是 `/`，`functions/_middleware.js` 才會被部署。`<site>/hugo.toml` 的 `params.ads.client` 與 `params.ads.slots` 留空時不載入廣告；根網域需自行放置 `ads.txt`。上線初期可設 `CSP_REPORT_ONLY=1`，確認後再移除。
 
-## 廣告
-
-在 `<site>/hugo.toml` 填 `params.ads.client` 與 `params.ads.slots`。留空時不載入任何廣告程式。
-
-- `kids` 的 `ageTreatment = "1"` 是 COPPA 兒童待遇標記，不可移除。
-- `kids` 刻意沒有 `top` 版位，避免廣告貼近影片造成誤觸。
-- 根網域必須放 `ads.txt`（`https://example.com/ads.txt`）。
-- 上線初期設 `CSP_REPORT_ONLY=1`，確認沒有違規後再移除。
-
-## 安全不變量
-
-- `markup.goldmark.renderer.unsafe` 保持 `false`。
-- `__CSP_NONCE__` 只能出現在 theme 樣板，不可進入文章內容或外部資料。
+- `kids` 的 `ageTreatment = "1"` 與沒有 `top` 版位的設定保留。
+- `markup.goldmark.renderer.unsafe` 保持 `false`；Blogger 轉換也會跳脫原始 HTML，只有受限的 YouTube shortcode 產生 iframe。
+- `__CSP_NONCE__` 只能出現在 Hugo theme 樣板，不可進入文章內容或外部資料。

@@ -1,0 +1,20 @@
+{
+  "name": "blogmaker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Markdown → AI editing → Blogger, with shared Hugo previews",
+  "type": "module",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "new": "node src/cli.mjs new",
+    "validate": "node src/cli.mjs validate",
+    "preview": "node --env-file-if-exists=.env src/cli.mjs preview",
+    "publish": "node --env-file-if-exists=.env src/cli.mjs publish",
+    "auth": "node scripts/google-auth.mjs",
+    "ci:publish": "node scripts/ci-publish.mjs",
+    "test": "node --test --test-isolation=none tests/*.test.mjs",
+    "check": "bash scripts/check.sh",
+    "lint": "bash scripts/lint.sh"
+  },
+  "dependencies": { "marked": "17.0.5" }
+}

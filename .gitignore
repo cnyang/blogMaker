@@ -3,3 +3,14 @@ resources/
 .hugo_build.lock
 .DS_Store
 _site/
+node_modules/
+.env
+.env.*
+!.env.example
+credentials/
+client_secret*.json
+token*.json
+.blogger/
+build/
+coverage/
+*.log

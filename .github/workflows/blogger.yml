@@ -1,0 +1,83 @@
+name: Markdown to Blogger
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: '只產生 AI 潤稿與預覽，不寫入 Blogger'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run validate
+      - run: npm run preview -- --no-ai
+      - uses: actions/upload-artifact@v4
+        with:
+          name: markdown-preview
+          path: build/
+          retention-days: 7
+
+  publish:
+    needs: validate
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.BLOGGER_BLOG_ID != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    concurrency:
+      group: blogger-publish
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Re-runs and queued jobs always process current main, avoiding stale updates.
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: AI preview or publish
+        env:
+          BLOGGER_BLOG_ID: ${{ vars.BLOGGER_BLOG_ID }}
+          GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_MODEL: ${{ vars.OPENAI_MODEL || 'gpt-4.1-mini' }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+        run: |
+          if [ "$DRY_RUN" = "true" ]; then
+            npm run preview
+          else
+            npm run ci:publish
+          fi
+      - name: Save publication journal
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: blogger-run-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            build/
+            .blogger/state.json
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 30

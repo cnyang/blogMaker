@@ -1,8 +1,20 @@
 ---
-title: "範例：用檔案當狀態機"
-date: 2026-11-06
-tags: [架構, Python]
-description: "狀態機不一定要資料庫。"
+{
+  "id": "tech-hello",
+  "title": "範例：用檔案當狀態機",
+  "date": "2026-11-06",
+  "tags": [
+    "架構",
+    "Python"
+  ],
+  "description": "狀態機不一定要資料庫。",
+  "publish": false,
+  "status": "draft",
+  "ai": true,
+  "labels": [
+    "技術"
+  ]
+}
 ---
 版面範例，上線前刪除。內文含有 `inline code` 與程式碼區塊。
 
