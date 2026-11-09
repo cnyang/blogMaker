@@ -48,7 +48,8 @@ export class BloggerClient {
 
   get(postId) {
     if (!/^\d+$/.test(postId)) throw new Error('無效 Blogger post ID');
-    return this.request('GET', `/${postId}`, undefined, { fetchBody: true });
+    // 預設 view 不回傳 status；沒有它，呼叫端無法分辨草稿與已公開。
+    return this.request('GET', `/${postId}`, undefined, { view: 'ADMIN', fetchBody: true });
   }
 
   async findManaged() {

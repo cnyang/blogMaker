@@ -26,6 +26,19 @@ test('OAuth refresh, admin pagination and draft insertion use documented paramet
   assert.equal(calls.filter(call => call.url.includes('oauth2')).length, 1);
 });
 
+test('get asks for the ADMIN view so the real API returns post status', async () => {
+  // 真實 API 的預設 view 不含 status；缺了它，TUI 與管線會把已存在的草稿誤判為「已公開」而拒絕更新。
+  let params;
+  const client = new BloggerClient('123', credentials, async url => {
+    if (String(url).includes('oauth2')) return Response.json({ access_token: 'test-access', expires_in: 3600 });
+    params = new URL(url).searchParams;
+    return Response.json({ id: '77', status: 'DRAFT' });
+  });
+  await client.get('77');
+  assert.equal(params.get('view'), 'ADMIN');
+  assert.equal(params.get('fetchBody'), 'true');
+});
+
 test('ambiguous insert failure is never retried and does not leak server body or tokens', async () => {
   let inserts = 0;
   const client = new BloggerClient('123', credentials, async (url, options) => {
