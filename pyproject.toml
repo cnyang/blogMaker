@@ -1,0 +1,16 @@
+[project]
+name = "blogmaker-tui"
+version = "0.1.0"
+description = "blogMaker 文章發布 TUI：畫面用 Python Textual，發布動作全部交給 Node 的 src/article-cli.mjs"
+requires-python = ">=3.12,<3.14"
+dependencies = ["textual>=8.2.8"]
+
+[dependency-groups]
+dev = ["pytest", "ruff"]
+
+[tool.ruff]
+line-length = 110
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

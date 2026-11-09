@@ -12,7 +12,21 @@ function uploadVersion(post, status) {
   return { ...post, meta: { ...post.meta, publish: true, status } };
 }
 
-export async function listArticles(root, env = process.env, onWarning = () => {}) {
+// 逐篇向 Blogger 查實際狀態，只填進 row.remote、不改寫發布紀錄（使用者可能在後台手動改過狀態）。
+// 單篇失敗（如 404）只標在該篇；憑證讀不到則整體退回離線並警告。
+async function checkRemote(rows, env, client, onWarning) {
+  const targets = rows.filter(row => row.record);
+  if (!targets.length) return;
+  let blogger = client;
+  try { blogger ??= new BloggerClient(env.BLOGGER_BLOG_ID, await loadCredentials(env)); }
+  catch (error) { onWarning(`無法核對 Blogger 遠端狀態：${error.message}`); return; }
+  await Promise.all(targets.map(async row => {
+    try { const post = await blogger.get(row.record.postId); row.remote = { status: post.status, url: post.url }; }
+    catch (error) { row.remote = { error: error.message }; }
+  }));
+}
+
+export async function listArticles(root, env = process.env, onWarning = () => {}, { remote = false, client } = {}) {
   const posts = await validate(root);
   let store;
   if (/^\d+$/.test(env.BLOGGER_BLOG_ID ?? '')) {
@@ -20,17 +34,22 @@ export async function listArticles(root, env = process.env, onWarning = () => {}
     try { store = await FileState.load(join(root, '.blogger/state.json'), env.BLOGGER_BLOG_ID); }
     catch (error) { onWarning(error.message); }
   }
-  return posts.sort((a, b) => (b.meta.date ?? '').localeCompare(a.meta.date ?? '') || a.meta.title.localeCompare(b.meta.title, 'zh-TW')).map(post => {
+  const rows = posts.sort((a, b) => (b.meta.date ?? '').localeCompare(a.meta.date ?? '') || a.meta.title.localeCompare(b.meta.title, 'zh-TW')).map(post => {
     const record = store?.get(post.meta.id);
     const status = record?.status === 'LIVE' ? 'published' : 'draft';
     const changed = Boolean(record && record.sourceHash !== fingerprint(uploadVersion(post, status), { noAI: true }));
-    return { post, category: categoryOf(post), record, changed };
+    return { post, category: categoryOf(post), record, changed, fingerprint: fingerprint(post, { noAI: true }) };
   });
+  if (remote) await checkRemote(rows, env, client, onWarning);
+  return rows;
 }
 
+// snapshot 可以是整篇 post，或畫面上看到的版本 { id, fingerprint }（TUI 在另一個程序，只帶得走這兩個值）。
 async function latestPost(root, snapshot) {
-  const post = (await validate(root)).find(item => item.meta.id === snapshot.meta.id);
-  if (!post || fingerprint(post, { noAI: true }) !== fingerprint(snapshot, { noAI: true })) {
+  const id = snapshot.meta?.id ?? snapshot.id;
+  const seen = snapshot.fingerprint ?? fingerprint(snapshot, { noAI: true });
+  const post = (await validate(root)).find(item => item.meta.id === id);
+  if (!post || fingerprint(post, { noAI: true }) !== seen) {
     throw new Error('文章已變更或移除；請重新整理、查看內容後再操作');
   }
   return post;

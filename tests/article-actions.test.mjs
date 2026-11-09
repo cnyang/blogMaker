@@ -1,14 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { access, mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { PassThrough } from 'node:stream';
 import { saveVideoPost } from '../src/video.mjs';
 import { runPipeline } from '../src/pipeline.mjs';
 import { FileState } from '../src/state.mjs';
 import { listArticles, previewArticle, publishArticle } from '../src/article-actions.mjs';
-import { runTui, renderTui, terminalText } from '../src/tui.mjs';
 
 const env = { BLOGGER_BLOG_ID: '123' };
 const document = (id, title, extra = {}, body = '這是審稿內容。') => `---\n${JSON.stringify({ id, title, publish: false, status: 'draft', ai: true, category: 'tech', date: '2026-11-09', ...extra })}\n---\n\n${body}\n`;
@@ -104,102 +102,6 @@ test('publishing rechecks manual remote draft changes instead of trusting a stal
   assert.equal(client.posts.get('77').status, 'LIVE');
 });
 
-function terminal() {
-  const input = new PassThrough();
-  input.isTTY = true;
-  input.isRaw = false;
-  input.setRawMode = value => { input.isRaw = value; };
-  const output = new PassThrough();
-  Object.assign(output, { isTTY: true, columns: 100, rows: 26 });
-  let text = '';
-  output.on('data', chunk => { text += chunk.toString(); });
-  const wait = async predicate => {
-    const deadline = Date.now() + 3000;
-    while (!predicate(text)) {
-      if (Date.now() > deadline) throw new Error('TUI 畫面沒有出現預期結果：' + text.slice(-600));
-      await new Promise(resolve => setTimeout(resolve, 5));
-    }
-  };
-  return { input, output, wait, text: () => text };
-}
-
-test('keyboard UI reads, filters, previews, cancels drafts and requires the complete public confirmation', async t => {
-  const { root, client } = await setup(t);
-  const ui = terminal();
-  const opened = [];
-  const done = runTui({ root, input: ui.input, output: ui.output, env, client, opener: async path => { opened.push(path); } });
-  t.after(() => { ui.input.end(); });
-  await ui.wait(text => text.includes('Enter 閱讀內容'));
-  ui.input.write('c');
-  await ui.wait(text => text.includes('Tech 1 篇'));
-  ui.input.write('\r');
-  await ui.wait(text => text.includes('這是審稿內容'));
-  // 單獨的 Esc 要等 readline 的逃脫序列逾時才會生效；等畫面真的回到列表（出現新的列表頁尾），再按下一個鍵，
-  // 否則會被當成 Meta+p。不用固定 sleep，避免 CI 負載高時誤判。
-  const mark = ui.text().length;
-  ui.input.write('\x1b');
-  await ui.wait(text => text.slice(mark).includes('c 分類'));
-  ui.input.write('p');
-  await ui.wait(text => text.includes('已開啟預覽'));
-  assert.equal(opened.length, 1);
-  assert.match(await readFile(opened[0], 'utf8'), /這是審稿內容/);
-  ui.input.write('un');
-  await ui.wait(text => text.includes('已取消，沒有上傳'));
-  assert.deepEqual(client.calls, []);
-  ui.input.write('uy');
-  await ui.wait(text => text.includes('已儲存草稿：文章 A'));
-  ui.input.write('P\r');
-  await ui.wait(text => text.includes('確認文字不符'));
-  assert.equal(client.calls.includes('publish'), false);
-  ui.input.write('PUBLISH\r');
-  await ui.wait(text => text.includes('已公開：文章 A'));
-  assert.equal(client.calls.filter(x => x === 'publish').length, 1);
-  ui.input.write('q');
-  await done;
-  assert.equal(ui.input.isRaw, false);
-  assert.match(ui.text(), /\x1b\[\?25h\x1b\[\?1049l/);
-});
-
-test('Ctrl+C leaves the TUI and restores the terminal even while a sync is in flight', { timeout: 10_000 }, async t => {
-  const { root, client } = await setup(t);
-  let release, entered;
-  const gate = new Promise(resolve => { release = resolve; });
-  const reached = new Promise(resolve => { entered = resolve; });
-  const insert = client.insertDraft.bind(client);
-  client.insertDraft = async payload => { entered(); await gate; return insert(payload); };
-  const ui = terminal();
-  const done = runTui({ root, input: ui.input, output: ui.output, env, client });
-  t.after(() => ui.input.end());
-  await ui.wait(text => text.includes('Enter 閱讀內容'));
-  ui.input.write('uy');
-  await reached; // 同步已持有發布鎖並卡在遠端寫入
-  ui.input.write('\x03');
-  await done;
-  assert.equal(ui.input.isRaw, false);
-  assert.match(ui.text(), /\x1b\[\?25h\x1b\[\?1049l/);
-  assert.match(ui.text(), /同步尚未完成/);
-  // 放行背景中的同步，等發布鎖釋放後才讓 t.after 清掉暫存目錄
-  release();
-  const lock = join(root, '.blogger/publish.lock');
-  while (await access(lock).then(() => true, () => false)) await new Promise(resolve => setTimeout(resolve, 5));
-});
-
-test('a successful sync is reported as success even when the follow-up refresh fails', async t => {
-  const { root, client } = await setup(t);
-  const insert = client.insertDraft.bind(client);
-  // 遠端寫入前才出現壞檔：同步本身成功，之後的重新整理必然失敗
-  client.insertDraft = async payload => { await writeFile(join(root, 'posts/bad.md'), '沒有 front matter'); return insert(payload); };
-  const ui = terminal();
-  const done = runTui({ root, input: ui.input, output: ui.output, env, client });
-  t.after(() => ui.input.end());
-  await ui.wait(text => text.includes('Enter 閱讀內容'));
-  ui.input.write('uy');
-  await ui.wait(text => text.includes('已儲存草稿：文章 A'));
-  assert.match(ui.text(), /重新整理失敗/);
-  ui.input.write('q');
-  await done;
-});
-
 test('unreadable publish records degrade to an offline list with a warning instead of aborting', async t => {
   const { root } = await setup(t);
   await mkdir(join(root, '.blogger'), { recursive: true });
@@ -211,31 +113,50 @@ test('unreadable publish records degrade to an offline list with a warning inste
     assert.ok(rows.every(row => row.record === undefined));
     assert.equal(warnings.length, 1);
   }
-  const state = { entries: [], category: 'all', index: 0, view: 'list', message: '', blogId: '123', warning: '發布紀錄的 blog ID 不同' };
-  assert.match(renderTui(state), /發布紀錄無法讀取/);
 });
 
-test('terminal rendering strips article control sequences and supports small-terminal recovery', () => {
-  assert.equal(terminalText('標題\x1b[2J\x1b]0;owned\x07\x00\x9b'), '標題');
-  const state = { entries: [], category: 'all', index: 0, view: 'list', message: '', blogId: '' };
-  assert.match(renderTui(state, { columns: 25, rows: 8 }), /放大終端機/);
-  assert.match(renderTui(state), /沒有符合分類/);
-  assert.ok(renderTui(state, { columns: 40, rows: 12 }).split('\r\n').length <= 12);
+test('a snapshot may be just the id and fingerprint the user saw, and a stale fingerprint is refused', async t => {
+  const { root, client, options } = await setup(t);
+  const seen = (await listArticles(root, env)).find(row => row.post.meta.id === 'a');
+  assert.match(seen.fingerprint, /^[a-f0-9]{64}$/);
+  const snapshot = { id: 'a', fingerprint: seen.fingerprint };
+  assert.match(await readFile(await previewArticle(root, snapshot), 'utf8'), /這是審稿內容/);
+  assert.equal((await publishArticle(root, snapshot, 'draft', options)).status, 'DRAFT');
+  await writeFile(join(root, 'posts/a.md'), document('a', '文章 A', {}, '看過之後又被改了。'));
+  await assert.rejects(publishArticle(root, snapshot, 'draft', options), /已變更/);
+  await assert.rejects(previewArticle(root, { id: 'missing', fingerprint: seen.fingerprint }), /已變更或移除/);
+  assert.equal(client.calls.filter(x => x === 'insert').length, 1);
 });
 
-// 測試用的顯示寬度：漢字、假名、諺文、CJK 標點與全形空白（U+3000）、全形符號都佔 2 欄。
-const cells = text => [...text].reduce((sum, c) => sum + (/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}　-〾！-｠￠-￦]/u.test(c) ? 2 : 1), 0);
-
-test('terminal rendering counts CJK punctuation and ideographic spaces as two columns', () => {
-  const item = { post: { meta: { id: 'a', title: '「標題」，《測試》。【全形】、標點！', labels: [] }, path: 'a.md', body: '' }, category: 'tech', changed: false };
-  const state = { entries: [item], category: 'all', index: 0, scroll: 0, view: 'list', pending: null, message: '全形空白　分隔　測試　訊息　很長很長很長', blogId: '123' };
-  for (const columns of [40, 41, 60]) {
-    for (const line of renderTui(state, { columns, rows: 12 }).split('\r\n')) assert.ok(cells(line) <= columns, `${cells(line)} > ${columns}：${line}`);
-  }
+test('remote check reports the real Blogger status next to a stale local record', async t => {
+  const { root, snapshot, client, options } = await setup(t);
+  await publishArticle(root, snapshot, 'draft', options);
+  client.posts.get('77').status = 'LIVE'; // 使用者在 Blogger 後台手動公開；本機紀錄仍是 DRAFT
+  const offline = (await listArticles(root, env)).find(row => row.post.meta.id === 'a');
+  assert.equal(offline.record.status, 'DRAFT');
+  assert.equal(offline.remote, undefined);
+  const warnings = [];
+  const rows = await listArticles(root, env, message => warnings.push(message), { remote: true, client });
+  assert.equal(rows.find(row => row.post.meta.id === 'a').remote.status, 'LIVE');
+  assert.equal(rows.find(row => row.post.meta.id === 'a').record.status, 'DRAFT'); // 只顯示，不改寫發布紀錄
+  assert.equal(rows.find(row => row.post.meta.id === 'b').remote, undefined);
+  assert.deepEqual(warnings, []);
 });
 
-test('TUI rejects pipes with a usable error instead of leaving the input in raw mode', async () => {
-  await assert.rejects(runTui({ input: new PassThrough(), output: new PassThrough() }), /互動式終端機/);
+test('remote check keeps the list usable when one post is gone or credentials are missing', async t => {
+  const { root, snapshot, client, options } = await setup(t);
+  await publishArticle(root, snapshot, 'draft', options);
+  client.posts.delete('77');
+  const rows = await listArticles(root, env, () => {}, { remote: true, client });
+  assert.match(rows.find(row => row.post.meta.id === 'a').remote.error, /404/);
+  const warnings = [];
+  // 明確指到不存在的檔案：否則會讀到專案根目錄真正的 credentials/token.json 並連線 Google。
+  const noCredentials = { ...env, GOOGLE_TOKEN_FILE: join(root, 'missing.json') };
+  const offline = await listArticles(root, noCredentials, message => warnings.push(message), { remote: true });
+  assert.equal(offline.length, 2);
+  assert.equal(offline.find(row => row.post.meta.id === 'a').remote, undefined);
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /遠端/);
 });
 
 const digest = 'a'.repeat(64);
@@ -270,37 +191,4 @@ test('a failed video publish keeps the verified journal so the same publish can 
   await assert.rejects(publishArticle(root, snapshot, 'published', options), /逾時/);
   client.publish = publish;
   assert.equal((await publishArticle(root, snapshot, 'published', options)).status, 'LIVE');
-});
-
-test('confirmation cannot be submitted when a resized terminal hides its contents', async t => {
-  const { root, client } = await setup(t);
-  const ui = terminal();
-  const done = runTui({ root, input: ui.input, output: ui.output, env, client });
-  t.after(() => ui.input.end());
-  await ui.wait(text => text.includes('Enter 閱讀內容'));
-  ui.input.write('u');
-  ui.output.columns = 40;
-  ui.output.rows = 12;
-  ui.output.emit('resize');
-  await ui.wait(text => text.includes('請放大終端機以顯示完整確認內容'));
-  ui.input.write('y');
-  await new Promise(resolve => setTimeout(resolve, 10));
-  assert.deepEqual(client.calls, []);
-  ui.input.write('nq');
-  await done;
-});
-
-test('publication errors stay readable in a scrollable view and the UI returns to the list', async t => {
-  const { root, client } = await setup(t);
-  client.findManaged = async () => { throw new Error('Blogger HTTP 401\n請完成 OAuth 授權後重試。\n這是詳細錯誤的最後一行。'); };
-  const ui = terminal();
-  const done = runTui({ root, input: ui.input, output: ui.output, env, client });
-  t.after(() => ui.input.end());
-  await ui.wait(text => text.includes('Enter 閱讀內容'));
-  ui.input.write('uy');
-  await ui.wait(text => text.includes('這是詳細錯誤的最後一行。'));
-  assert.equal(client.posts.size, 0);
-  ui.input.write('qq');
-  await done;
-  assert.equal(ui.input.isRaw, false);
 });

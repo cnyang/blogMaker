@@ -7,7 +7,8 @@
   "engines": { "node": ">=24" },
   "scripts": {
     "new": "node src/cli.mjs new",
-    "tui": "node --env-file-if-exists=.env src/tui.mjs",
+    "tui": "uv run --quiet python -m blogmaker_tui",
+    "test:tui": "uv run --quiet ruff check blogmaker_tui tests && uv run --quiet pytest",
     "validate": "node src/cli.mjs validate",
     "preview": "node --env-file-if-exists=.env src/cli.mjs preview",
     "publish": "node --env-file-if-exists=.env src/cli.mjs publish",
