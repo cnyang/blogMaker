@@ -42,16 +42,8 @@ for s in kids tech; do
   node -e 'const r=JSON.parse(require("fs").readFileSync(process.argv[1]));process.exit(r.include.includes("/*")&&r.exclude.includes("/css/*")?0:1)' "$tmp/$s-off/_routes.json" || fail "$s: _routes.json 錯誤"
 done
 
-# 子路徑部署：資源與連結都要帶 base path
-build kids "$tmp/sub" --baseURL https://example.github.io/repo/kids/
-grep -qE 'href="/repo/kids/css/main\.[0-9a-f]+\.css"' "$tmp/sub/index.html" || fail "css 未帶 base path 或內容 hash"
+# CSS 檔名帶內容 hash 且輸出在 /css/，_routes.json 才排得掉
 ls "$tmp"/kids-off/css/main.*.css >/dev/null || fail "css 檔未輸出到 /css/，_routes.json 會失效"
-grep -q 'href="/repo/kids/privacy/"' "$tmp/sub/index.html" || fail "連結未帶 base path"
-
-# 預覽站要 noindex；正式站不可帶
-HUGO_PARAMS_NOINDEX=true build tech "$tmp/noindex"
-grep -q 'name="robots" content="noindex"' "$tmp/noindex/index.html" || fail "預覽站缺 noindex"
-! grep -q 'content="noindex"' "$tmp/tech-off/index.html" || fail "正式站不該 noindex"
 
 # 兒童站首頁不對第三方發出請求
 ! grep -qE '(src|href)="https?://' "$tmp/kids-off/index.html" || fail "kids 首頁有第三方資源"

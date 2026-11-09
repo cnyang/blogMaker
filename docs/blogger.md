@@ -76,7 +76,7 @@ npm run new -- "技術文章" --site tech
 npm run new -- "兒童文章" --site kids
 ```
 
-這兩種文章也會出現在對應 Hugo 預覽站。兒童文章的 `kind` 可填 `music`、`facts` 或 `english`（預設 `facts`）。不加 `--site` 則建立在 `posts/`，僅供 Blogger 使用。
+這兩種文章也會出現在本機的 Hugo 預覽（`hugo server`），不會部署到任何網站。兒童文章的 `kind` 可填 `music`、`facts` 或 `english`（預設 `facts`）。不加 `--site` 則建立在 `posts/`，僅供 Blogger 使用。
 
 共用欄位還包括 Hugo 的 `date`、`tags`、`kind`、`description`。`tags` 會合併進 Blogger labels；`description` 保留給 Hugo，Blogger 摘要由 `summary` 或 AI 提供。`date` 用於 Hugo 顯示與排序，不會指定 Blogger 的發布時間；`publish`／`status` 只控制 Blogger，Hugo 預覽仍依自身規則顯示本機文章。
 

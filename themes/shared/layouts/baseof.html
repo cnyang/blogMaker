@@ -4,9 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
-{{- if site.Params.noindex }}
-<meta name="robots" content="noindex">
-{{- end }}
 <title>{{ if .IsHome }}{{ site.Title }}{{ else }}{{ .Title }} | {{ site.Title }}{{ end }}</title>
 <meta name="description" content="{{ with .Description }}{{ . }}{{ else }}{{ with .Summary }}{{ . | plainify | truncate 150 }}{{ else }}{{ site.Params.tagline }}{{ end }}{{ end }}">
 {{- /* 檔名帶內容 hash：CSS 一改網址就變，避免瀏覽器與 CDN 拿舊檔配新 HTML */ -}}

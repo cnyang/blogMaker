@@ -1,13 +1,13 @@
 # blogMaker
 
-以 Markdown 管理文章，經 AI 潤稿、摘要與標籤整理後，發布到 **Blogger**。保留原本 Hugo 兒童／技術兩站供本機與 GitHub Pages 預覽，共用 `themes/shared`。
+以 Markdown 管理文章，經 AI 潤稿、摘要與標籤整理後，發布到 **Blogger**。保留原本 Hugo 兒童／技術兩站供本機預覽，共用 `themes/shared`。
 
 ```text
 posts/ ----------------------+                     +--> Blogger（正式發布）
 kids/content/posts/ ---------+--> 驗證 --> AI --> HTML
 tech/content/posts/ ---------+                     +--> build/（文章預覽）
          |
-         +--> Hugo + themes/shared --> 本機 / GitHub Pages（網站預覽）
+         +--> Hugo + themes/shared --> 本機（網站預覽）
 ```
 
 ## 快速開始
@@ -99,7 +99,7 @@ npm run publish                     # 同步 publish: true 的文章
 所有文章目前同步到單一 `BLOGGER_BLOG_ID`，兒童／技術內容以 labels 區分。`--site` 僅決定新文章的位置。
 
 - `.github/workflows/blogger.yml`：PR 執行測試、語法檢查、驗證與離線預覽；設定 `BLOGGER_BLOG_ID` 後，`main` 更新會同步到 Blogger。手動執行預設只產生 AI 預覽。
-- `.github/workflows/pages.yml`：保留兩站 GitHub Pages 預覽，帶有 `noindex`，不啟用廣告。
+- `.github/workflows/check.yml`：`main` 更新時建置兩站並執行 `scripts/check.sh`（廣告、CSP、兒童站不對第三方發請求等檢查），不部署到任何地方。
 - `blogger-state`：記錄文章 ID、遠端 post ID 與來源雜湊，支援更新、略過未變更文章及失敗復原。請保留這個分支。
 
 Blogger 的佈景主題、隱私權頁、兒童內容設定與 AdSense 需在 Blogger 後台設定；Hugo 的廣告與 CSP 不會套用到 Blogger。此合併不代表已完成 AdSense 申請或審核。
