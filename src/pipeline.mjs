@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { loadPosts, fingerprint, renderBody, renderPost, writePreview } from './posts.mjs';
+import { loadPosts, fingerprint, renderBody, renderPost, writePreview, allowsFacebook } from './posts.mjs';
 import { editPost } from './ai.mjs';
 
 export async function settings(root, env = process.env) {
@@ -9,11 +9,11 @@ export async function settings(root, env = process.env) {
 
 export async function validate(root) {
   const posts = await loadPosts(root);
-  for (const post of posts) renderBody(post.body);
+  for (const post of posts) renderBody(post.body, { facebook: allowsFacebook(post) });
   return posts;
 }
 
-export async function runPipeline({ root, posts, config, dryRun = false, noAI = false, store, blogger, editor = editPost, log = console.log }) {
+export async function runPipeline({ root, posts, config, dryRun = false, noAI = false, store, blogger, editor = editPost, log = console.log, allowRevert = true }) {
   posts ??= await validate(root);
   const selected = dryRun ? posts : posts.filter(post => post.meta.publish);
   // Validate all local pointers before any external mutations.
@@ -76,6 +76,7 @@ export async function runPipeline({ root, posts, config, dryRun = false, noAI = 
     } else {
       if (!['DRAFT', 'LIVE', 'SCHEDULED'].includes(remote.status)) remote = await blogger.get(remote.id);
       if (post.meta.status === 'draft' && remote.status !== 'DRAFT') {
+        if (!allowRevert) throw new Error('文章已公開或排程；此操作不允許取消公開');
         remote = await blogger.revert(remote.id);
         await checkpoint(null);
       }
@@ -86,7 +87,10 @@ export async function runPipeline({ root, posts, config, dryRun = false, noAI = 
     }
     if (!['DRAFT', 'LIVE', 'SCHEDULED'].includes(remote.status)) remote = await blogger.get(remote.id);
     if (post.meta.status === 'published' && remote.status !== 'LIVE') remote = await blogger.publish(remote.id);
-    if (post.meta.status === 'draft' && remote.status !== 'DRAFT') remote = await blogger.revert(remote.id);
+    if (post.meta.status === 'draft' && remote.status !== 'DRAFT') {
+      if (!allowRevert) throw new Error('文章已公開或排程；此操作不允許取消公開');
+      remote = await blogger.revert(remote.id);
+    }
     const expected = post.meta.status === 'published' ? 'LIVE' : 'DRAFT';
     if (remote.status !== expected) remote = await blogger.get(remote.id);
     if (remote.status !== expected) throw new Error(`${post.path}: Blogger 狀態未符合 ${expected}，請重新執行`);

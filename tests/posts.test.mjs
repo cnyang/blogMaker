@@ -87,6 +87,15 @@ test('new posts and both Hugo sites share discovery and reject cross-site duplic
   await assert.rejects(loadPosts(root), /重複文章 id/);
 });
 
+test('Facebook shortcode accepts spacing variants and reports Facebook-specific errors', () => {
+  for (const code of ['{{<facebook id="123">}}', '{{<  facebook  id="123"  >}}']) {
+    assert.match(renderBody(`${code}\n`, { facebook: true }), /facebook\.com\/plugins\/video\.php/);
+    assert.throws(() => renderBody(`${code}\n`), /posts\/video/);
+  }
+  assert.throws(() => renderBody('{{<facebook id="bad">}}\n', { facebook: true }), /Facebook shortcode 必須/);
+  assert.deepEqual(protectedContent('{{<facebook id="123">}}\n'), [JSON.stringify(['facebook', '123'])]);
+});
+
 test('YouTube shortcodes embed with nocookie, preserve IDs and keep code examples as text', () => {
   const shortcode = '{{< youtube id="jNQXAC9IVRw" loading="lazy" >}}';
   const html = renderBody(`段落\n\n${shortcode}\n\n後續內容`);

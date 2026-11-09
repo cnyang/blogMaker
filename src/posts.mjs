@@ -4,22 +4,40 @@ import { resolve, join, relative, dirname } from 'node:path';
 import { Marked } from 'marked';
 
 export const FORMAT_VERSION = 1;
-const fields = new Set(['id', 'title', 'publish', 'status', 'ai', 'labels', 'summary', 'post_id', 'date', 'tags', 'kind', 'description']);
+const fields = new Set(['id', 'title', 'publish', 'status', 'ai', 'labels', 'summary', 'post_id', 'date', 'tags', 'kind', 'description', 'category']);
 
-// 只接受既有的 YouTube shortcode，維持 raw HTML 跳脫與兒童站的 nocookie 網域。
-const youtube = {
-  name: 'youtube', level: 'block',
+// 只接受下表的影片 shortcode，維持 raw HTML 跳脫與兒童站的 nocookie 網域。
+// 新增一種只要加一列；id 的格式限制就是安全邊界（iframe 網址只由固定網域加 id 組成）。
+const shortcodes = {
+  youtube: {
+    pattern: /^\{\{<\s*youtube\s+id="([A-Za-z0-9_-]{11})"(?:\s+loading="lazy")?\s*>}}[^\S\n]*(?:\n|$)/,
+    error: '僅支援獨立一行的 YouTube shortcode，id 必須是 11 個英數字、底線或連字號',
+    html: id => `<iframe src="https://www.youtube-nocookie.com/embed/${id}" title="YouTube 影片" loading="lazy" style="width:100%;aspect-ratio:16/9;border:0" allowfullscreen></iframe>\n`,
+  },
+  facebook: {
+    pattern: /^\{\{<\s*facebook\s+id="(\d+)"\s*>}}[^\S\n]*(?:\n|$)/,
+    error: 'Facebook shortcode 必須使用純數字影片 ID，並獨立一行',
+    html: id => `<iframe src="https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(`https://www.facebook.com/watch/?v=${id}`)}&amp;show_text=false" title="Facebook 影片" loading="lazy" style="width:100%;aspect-ratio:9/16;max-height:640px;border:0" allowfullscreen></iframe>\n`,
+  },
+};
+
+// Hugo 沒有 facebook shortcode；只有不進 Hugo 站的 posts/video 影片文章可使用，其他文章一律拒絕以免網站建置失敗。
+export const allowsFacebook = post => post.path.startsWith('posts/video/');
+
+const shortcode = allowFacebook => ({
+  name: 'shortcode', level: 'block',
   start(source) { return source.indexOf('{{<'); },
   tokenizer(source) {
     if (!source.startsWith('{{<')) return;
-    const match = source.match(/^\{\{<\s*youtube\s+id="([A-Za-z0-9_-]{11})"(?:\s+loading="lazy")?\s*>}}[^\S\n]*(?:\n|$)/);
-    if (!match) throw new Error('僅支援獨立一行的 YouTube shortcode，id 必須是 11 個英數字、底線或連字號');
-    return { type: 'youtube', raw: match[0], id: match[1] };
+    const name = source.match(/^\{\{<\s*([A-Za-z]+)/)?.[1];
+    if (name === 'facebook' && !allowFacebook) throw new Error('Facebook shortcode 只能用在 posts/video/ 的影片文章');
+    if (!Object.hasOwn(shortcodes, name)) throw new Error('僅支援獨立一行的 YouTube 與 Facebook shortcode');
+    const match = source.match(shortcodes[name].pattern);
+    if (!match) throw new Error(shortcodes[name].error);
+    return { type: 'shortcode', raw: match[0], name, id: match[1] };
   },
-  renderer(token) {
-    return `<iframe src="https://www.youtube-nocookie.com/embed/${token.id}" title="YouTube 影片" loading="lazy" style="width:100%;aspect-ratio:16/9;border:0" allowfullscreen></iframe>\n`;
-  },
-};
+  renderer(token) { return shortcodes[token.name].html(token.id); },
+});
 
 export function normalizeMarkdown(text) {
   // Preserve indentation, hard line breaks and code block whitespace.
@@ -57,6 +75,7 @@ export function parsePost(text, path = 'article.md') {
     if (meta[key] !== undefined && typeof meta[key] !== 'string') throw new Error(`${path}: ${key} 必須是字串`);
   }
   if (meta.kind !== undefined && !['music', 'facts', 'english'].includes(meta.kind)) throw new Error(`${path}: kind 只能填 music、facts 或 english`);
+  if (meta.category !== undefined && !['kids', 'husky', 'tech'].includes(meta.category)) throw new Error(`${path}: category 只能填 kids、husky 或 tech`);
   const tags = validateLabels(meta.tags ?? [], 'tags');
   let body = match[2].replace(/^\n+/, '');
   // Blogger already renders the title. Remove only an identical leading H1.
@@ -122,21 +141,21 @@ function allowedUrl(url, image = false) {
 
 export function protectedContent(body) {
   const values = [];
-  const parser = new Marked({ extensions: [youtube] });
+  const parser = new Marked({ extensions: [shortcode(true)] }); // 只比對 token，是否允許由 renderBody 決定
   parser.walkTokens(parser.lexer(body), token => {
     if (token.type === 'code') values.push(JSON.stringify(['code', token.lang ?? '', token.text]));
     if (token.type === 'codespan') values.push(JSON.stringify(['codespan', token.text]));
     if (['link', 'image'].includes(token.type)) values.push(JSON.stringify([token.type, token.href]));
-    if (token.type === 'youtube') values.push(JSON.stringify(['youtube', token.id]));
+    if (token.type === 'shortcode') values.push(JSON.stringify([token.name, token.id]));
   });
   return values.sort();
 }
 
-export function renderBody(body) {
+export function renderBody(body, { facebook: allowFacebook = false } = {}) {
   const headings = new Map();
   const parser = new Marked({
     gfm: true,
-    extensions: [youtube],
+    extensions: [shortcode(allowFacebook)],
     renderer: {
       html({ text }) { return escapeHtml(text); },
       link({ href, title, tokens }) {
@@ -166,7 +185,7 @@ export function renderBody(body) {
 export function renderPost(post, edited, hash) {
   const summary = post.meta.summary ?? edited.summary;
   const labels = validateLabels([...post.meta.labels, ...edited.labels]);
-  const content = `${summary ? `<p><strong>摘要：</strong>${escapeHtml(summary)}</p>\n<!--more-->\n` : ''}${renderBody(edited.markdown)}\n<!-- blogger-pipeline:id=${post.meta.id};source=${hash} -->`;
+  const content = `${summary ? `<p><strong>摘要：</strong>${escapeHtml(summary)}</p>\n<!--more-->\n` : ''}${renderBody(edited.markdown, { facebook: allowsFacebook(post) })}\n<!-- blogger-pipeline:id=${post.meta.id};source=${hash} -->`;
   return { title: post.meta.title, content, labels };
 }
 

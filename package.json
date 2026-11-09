@@ -7,10 +7,12 @@
   "engines": { "node": ">=24" },
   "scripts": {
     "new": "node src/cli.mjs new",
+    "tui": "node --env-file-if-exists=.env src/tui.mjs",
     "validate": "node src/cli.mjs validate",
     "preview": "node --env-file-if-exists=.env src/cli.mjs preview",
     "publish": "node --env-file-if-exists=.env src/cli.mjs publish",
     "auth": "node scripts/google-auth.mjs",
+    "video": "node --env-file-if-exists=.env src/video-cli.mjs",
     "ci:publish": "node scripts/ci-publish.mjs",
     "test": "node --test --test-isolation=none tests/*.test.mjs",
     "check": "bash scripts/check.sh",

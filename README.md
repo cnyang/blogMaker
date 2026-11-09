@@ -25,6 +25,30 @@ npm run preview -- --no-ai   # 離線 HTML 預覽，不需憑證、不呼叫 AI 
 
 `build/<文章 id>.html` 為 Blogger 文章預覽。所有內附範例均為 `publish: false`，不會同步到 Blogger。
 
+## 文章發布 TUI
+
+```bash
+npm run tui
+```
+
+TUI 會列出 `posts/`、`kids/content/posts/`、`tech/content/posts/` 的文章；可離線閱讀與預覽，發布時使用目前 Markdown，不額外呼叫 AI。上傳前須先完成 [Blogger OAuth 與 Blog ID 設定](docs/blogger.md#設定-blogger-oauth)，設定變更後重新開啟 TUI。
+
+| 按鍵 | 動作 |
+|---|---|
+| ↑／↓、PgUp／PgDn | 選擇文章；閱讀內容時捲動 |
+| Enter | 閱讀選取文章的內容、摘要與標籤 |
+| `c` | 切換全部／Tech／兒童／Husky |
+| `p` | 產生並開啟單篇 HTML 預覽，不需憑證 |
+| `u` | 上傳／更新 Blogger 草稿，按 `y` 確認；不會把已公開文章取消公開 |
+| `P`（大寫） | 公開／更新公開文章，輸入完整 `PUBLISH` 後按 Enter 才執行 |
+| `r` | 重新讀取文章與本機發布紀錄 |
+| Esc／`q` | 返回列表；在列表離開 TUI（確認視窗以 Esc 取消） |
+| Ctrl+C | 隨時離開並還原終端機；同步進行中會等它結束，再按一次可立即中止 |
+
+確認畫面會列出文章、來源檔案、目標 Blog ID 與動作。同步只處理這一篇，保留磁碟上的 `publish`／`status`，不會因此啟用後續 CI 同步。若確認後原文已變更，會停止並要求重新整理；處理途中須等待結果才可繼續操作。發布狀態欄為本機最後一次紀錄，操作時才連線核對遠端。
+
+影片文章仍須先在 videoMaker TUI 按 `b` 完成核准與雙平台 hash 驗證、上傳草稿，再由本 TUI 公開該版本。影片播放器是否可公開觀看，要另到影片平台確認。`.blogger/state.json` 與發布鎖沿用 CLI／videoMaker 的機制，請保留；若與 CI 交替管理同一篇文章，先同步紀錄。
+
 ## 寫文章
 
 ```bash
@@ -56,6 +80,8 @@ npm run new -- "只發布到 Blogger 的文章"  # 建立於 posts/
 既有 9 篇 Hugo 範例保留原始路徑與內容，並補上 `kids-`／`tech-` 前綴 ID；原本日期、`tags`、`kind`、`description` 均保留。`tags` 會合併進 Blogger labels。Hugo 隱私權頁不會自動發布到 Blogger。
 
 ## Blogger 發布
+
+兒童／Husky 影片文章已接上相鄰 `videoMaker`：影片通過 QC 後由 GX10 自動產出一篇「介紹＋推薦」；Mac 的 videoMaker TUI 按 `p` 匯入預覽、`b` 上傳 Blogger 草稿。匯入檔案在 `posts/video/kids/`／`husky/`，以 `category` 與 labels 分類，包含 YouTube、Facebook 播放器及直接連結。Tech 暫維持手寫流程，影片文章整合見 [設定文件](docs/blogger.md#videomaker-影片文章)。
 
 完整的 [AI、Google OAuth、GitHub Actions 與失敗復原設定](docs/blogger.md)。設定好憑證後：
 

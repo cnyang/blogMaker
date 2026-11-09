@@ -175,6 +175,26 @@ npm run publish
 
 刪除本機 Markdown 不會刪除遠端文章，也不會取消公開；如需取消公開，保留文章並設定 `publish: true`、`status: "draft"`。
 
+## videoMaker 影片文章
+
+在 Mac 安裝本專案依賴並使用 Node 24+，設定好原有 Blogger OAuth 與 `BLOGGER_BLOG_ID` 後，使用相鄰 videoMaker 的 TUI：`w` 產文／重試、`p` 預覽、`b` 上傳草稿。GX10 須先部署新增的 Python 文章功能，但不需 Node 或 Blogger 憑證。
+
+```text
+GX10 影片 QC -> Ollama 撰寫介紹＋推薦 -> article.json
+                                            |
+                  Mac TUI -> article-json -> npm run video -> HTML 預覽
+                                                     |
+                                人工選擇 b -> Blogger 草稿
+```
+
+`npm run video` 從標準輸入接收 videoMaker 的 JSON 封包，預設只匯入與離線預覽；`npm run video -- --upload` 才上傳所選的單篇文章。封包來自 videoMaker 的 `article-json <作業>`，不接受任意檔案路徑或外部 HTML。TUI 自動完成傳遞，不必手動複製封包。
+
+文章分成 `category: "kids"` 與 `"husky"`，保存在 `posts/video/<分類>/vmk-<固定識別碼>.md`。`category` 也接受未來手寫文章的 `"tech"`；Hugo 的 `kind` 仍只控制原有兒童版面，兩個欄位用途不同。自動匯入的影片文章提供 Blogger 與單篇 HTML 預覽，不新增第三個 Hugo 站。每支影片一篇，包含內容介紹、推薦觀看理由、YT／FB 播放器與直接連結；知識影片保留來源及授權。FB 標記為 `{{< facebook id="數字影片ID" >}}`，只產生固定 Facebook player 網址，原始 HTML 仍會跳脫。
+
+上傳必須有人工核准及對應目前成片的 YT／FB 雜湊；未上傳影片時仍可先預覽文字，待取得真實 ID 後再次匯入補上播放器。YouTube 私人與 FB 草稿都不代表影片已公開；Blogger 也只儲存草稿，播放器的公開可見性須另到影片平台確認。舊版 YouTube 上傳紀錄缺少 `youtube_sha256` 時會拒絕文章上傳，避免將新文配到舊影片；不會自動補 hash 或重傳影片。
+
+Markdown 維持 `publish: false`、`status: "draft"`、`ai: false`；TUI 上傳只在當次命令中啟用這一篇，不會同步其他文章、公開文章或呼叫 OpenAI。重跑沿用同一篇 Blogger post。請保留本機 `.blogger/state.json`，並讓這些影片文章持續由 TUI 管理；若要改由 CI 管理，先依上方復原流程同步發布紀錄。
+
 ## 開發與驗證
 
 ```bash
